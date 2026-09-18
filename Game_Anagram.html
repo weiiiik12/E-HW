@@ -1,0 +1,211 @@
+<style>
+  #module-anagram { background-color: #f0f8ff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; padding-bottom: 20px;}
+  .an-header { background: linear-gradient(135deg, #0984e3 0%, #74b9ff 100%); color: white; padding: 15px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; }
+  
+  .an-hint-area { background: #fff; margin: 15px 20px; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); min-height: 100px; display: flex; align-items: center; justify-content: center; flex-direction: column;}
+  .an-hint-image { max-height: 150px; border-radius: 12px; cursor: pointer; }
+  .an-hint-text { font-size: 2.2rem; font-weight: bold; color: #2d3436; cursor: pointer; }
+  .an-hint-audio { font-size: 4rem; cursor: pointer; animation: float 3s infinite ease-in-out; }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+  .an-speed-box {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(255, 255, 255, 0.9); padding: 6px 20px; border-radius: 20px;
+    margin: -5px auto 15px auto; width: fit-content;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); border: 2px dashed #0984e3; 
+  }
+  .an-speed-box input[type=range] { width: 130px; touch-action: pan-x !important; accent-color: #0984e3; cursor: pointer; }
+  .an-speed-box span { font-weight: 900; color: #0984e3; font-size: 1.1rem; }
+  #an-speed-text { min-width: 45px; text-align: right; }
+  #an-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
+
+  .an-answer-area { display: flex; justify-content: center; gap: 8px; margin-bottom: 25px; min-height: 60px; padding: 0 10px; flex-wrap: wrap;}
+  /* 🌟 移除了強制的 text-transform: uppercase */
+  .an-slot { width: 45px; height: 55px; border-bottom: 4px solid #0984e3; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: #0984e3; cursor: pointer; transition: all 0.2s; }
+  
+  .an-letters-pool { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; padding: 0 20px; }
+  /* 🌟 移除了強制的 text-transform: uppercase */
+  .an-letter-btn { background: #74b9ff; color: white; width: 50px; height: 55px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #0984e3; transition: all 0.1s; }
+  .an-letter-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #0984e3; }
+  .an-letter-btn.hidden { opacity: 0; pointer-events: none; transform: scale(0); }
+
+  .an-shake { animation: an-shake 0.4s; }
+  @keyframes an-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .an-success .an-slot { border-color: #00b894; color: #00b894; background: #e8f5e9; border-radius: 8px; border-bottom-width: 4px; }
+  
+  /* 🌟 同樣為手機瘦身 */
+  @media (max-width: 500px) {
+    .an-hint-image { max-height: 110px; }
+    .an-slot { width: 35px; height: 45px; font-size: 1.5rem; }
+    .an-letter-btn { width: 40px; height: 45px; font-size: 1.5rem; }
+  }
+</style>
+
+<div id="module-anagram" class="card d-none game-module">
+  <div class="an-header">
+    <span>🎯 第 <span id="an-progressText">1 / 10</span> 題 <span id="an-scoreDisplay" class="badge bg-light text-primary ms-2">💯 100</span></span>
+    <span>⏱️ <span id="an-timerText">0</span> 秒</span>
+  </div>
+  
+  <div class="an-hint-area" id="an-hintArea"></div>
+
+  <div class="an-speed-box" id="an-speed-box-container">
+    <span id="an-speed-icon">🐇</span>
+    <input type="range" min="0.3" max="1.0" step="0.05" value="0.85" oninput="changeANSpeed(this.value)">
+    <span id="an-speed-text">0.85x</span>
+  </div>
+  
+  <div class="an-answer-area" id="an-answerArea"></div>
+  <div class="an-letters-pool" id="an-lettersPool"></div>
+</div>
+
+<script>
+  let an_questions = []; let an_currentIndex = 0;
+  let an_targetWord = ""; let an_currentAnswer = []; let an_letters = [];
+  let an_isLocked = false; let an_score = 100; let an_mistakesCurrent = 0;
+
+  const an_sfxClick = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+  const an_sfxCorrect = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const an_sfxWrong = new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3');
+
+  document.addEventListener('timerUpdated', function(e) { let timerEl = document.getElementById('an-timerText'); if(timerEl) timerEl.innerText = e.detail; });
+
+  function changeANSpeed(val) {
+    if (typeof currentSpeechRate !== 'undefined') currentSpeechRate = parseFloat(val); 
+    document.getElementById('an-speed-text').innerText = parseFloat(val).toFixed(2) + 'x';
+    let icon = '🐇'; if (val <= 0.45) icon = '🐌'; else if (val < 0.8) icon = '🐢';
+    document.getElementById('an-speed-icon').innerText = icon;
+  }
+
+  function playANAudioCurrent() {
+    let q = an_questions[an_currentIndex];
+    if(q.audioUrl && q.audioUrl !== 'undefined' && q.audioUrl !== '') { 
+      let audio = new Audio(q.audioUrl); 
+      if (typeof currentSpeechRate !== 'undefined') audio.playbackRate = currentSpeechRate;
+      audio.play().catch(() => speakWord(q.english)); 
+    } else { speakWord(q.english); }
+  }
+
+  function initGame_Anagram(questions) {
+    document.getElementById('module-anagram').classList.remove('d-none');
+    an_questions = questions; an_currentIndex = 0; an_score = 100;
+    document.getElementById('an-scoreDisplay').innerText = `💯 ${an_score}`;
+    document.getElementById('an-speed-box-container').style.display = 'flex';
+
+    renderAnagramQuestion();
+  }
+
+  function renderAnagramQuestion() {
+    an_isLocked = false; an_mistakesCurrent = 0;
+    let q = an_questions[an_currentIndex];
+    let hintType = globalGameData.qType || 'chinese'; 
+    document.getElementById('an-progressText').innerText = (an_currentIndex + 1) + " / " + an_questions.length;
+    
+    let hintHtml = "";
+    if (hintType === 'image') {
+      hintHtml = q.imageUrl ? `<img src="${q.imageUrl}" class="an-hint-image" onclick="playANAudioCurrent()"><div style="font-size: 0.9rem; color: #636e72; margin-top: 10px;">點圖可聽發音</div>` : `<div class="an-hint-text">無圖片</div>`;
+    } else if (hintType === 'audio') {
+      hintHtml = `<div class="an-hint-audio" onclick="playANAudioCurrent()">🔊</div><div style="font-size: 0.9rem; color: #636e72; margin-top: 10px;">點擊可聽發音</div>`;
+    } else {
+      hintHtml = `<div class="an-hint-text" onclick="playANAudioCurrent()">${q.chinese}</div><div style="font-size: 0.9rem; color: #636e72; margin-top: 10px;">點字可聽發音</div>`;
+    }
+    document.getElementById('an-hintArea').innerHTML = hintHtml;
+    
+    setTimeout(() => playANAudioCurrent(), 400);
+
+    // 🌟 核心修改：判斷後台設定的是大寫還是小寫
+    let caseType = globalGameData.optType === 'lower' ? 'lower' : 'upper'; 
+    let baseWord = q.english.replace(/\s+/g, ''); // 去除空白
+    an_targetWord = caseType === 'lower' ? baseWord.toLowerCase() : baseWord.toUpperCase();
+
+    an_currentAnswer = Array(an_targetWord.length).fill(null);
+    an_letters = an_targetWord.split('').map((char, index) => ({ id: index, char: char, used: false }));
+    an_letters.sort(() => 0.5 - Math.random());
+    
+    drawAnagramBoard();
+  }
+
+  function drawAnagramBoard() {
+    let answerHtml = "";
+    for (let i = 0; i < an_targetWord.length; i++) {
+      let charDisplay = an_currentAnswer[i] !== null ? an_currentAnswer[i].char : "";
+      answerHtml += `<div class="an-slot" onclick="returnLetter(${i})">${charDisplay}</div>`;
+    }
+    document.getElementById('an-answerArea').innerHTML = answerHtml;
+
+    let poolHtml = "";
+    an_letters.forEach(letter => {
+      let hideClass = letter.used ? "hidden" : "";
+      poolHtml += `<div class="an-letter-btn ${hideClass}" onclick="useLetter(${letter.id})">${letter.char}</div>`;
+    });
+    document.getElementById('an-lettersPool').innerHTML = poolHtml;
+  }
+
+  function useLetter(id) {
+    if (an_isLocked) return;
+    let emptyIndex = an_currentAnswer.findIndex(val => val === null);
+    if (emptyIndex === -1) return; 
+    
+    an_sfxClick.currentTime = 0; an_sfxClick.play().catch(()=>{});
+    let letter = an_letters.find(l => l.id === id);
+    letter.used = true;
+    an_currentAnswer[emptyIndex] = letter;
+    
+    drawAnagramBoard();
+    checkAnagramAnswer();
+  }
+
+  function returnLetter(slotIndex) {
+    if (an_isLocked || an_currentAnswer[slotIndex] === null) return;
+    an_sfxClick.currentTime = 0; an_sfxClick.play().catch(()=>{});
+    
+    let letter = an_currentAnswer[slotIndex];
+    letter.used = false;
+    an_currentAnswer[slotIndex] = null;
+    drawAnagramBoard();
+  }
+
+  function checkAnagramAnswer() {
+    if (an_currentAnswer.includes(null)) return; 
+    
+    an_isLocked = true;
+    let currentWord = an_currentAnswer.map(l => l.char).join('');
+    
+    if (currentWord === an_targetWord) {
+      an_sfxCorrect.currentTime = 0; an_sfxCorrect.play().catch(()=>{});
+      document.getElementById('an-answerArea').classList.add('an-success');
+      
+      setTimeout(() => {
+        document.getElementById('an-answerArea').classList.remove('an-success');
+        an_currentIndex++;
+        if (an_currentIndex < an_questions.length) { renderAnagramQuestion(); } 
+        else { finishGame(Math.max(0, an_score)); }
+      }, 1200);
+    } else {
+      an_mistakesCurrent++; an_score = Math.max(0, an_score - 5);
+      document.getElementById('an-scoreDisplay').innerText = `💯 ${an_score}`;
+      
+      an_sfxWrong.currentTime = 0; an_sfxWrong.play().catch(()=>{});
+      document.getElementById('an-answerArea').classList.add('an-shake');
+      
+      setTimeout(() => {
+        document.getElementById('an-answerArea').classList.remove('an-shake');
+        
+        if (an_mistakesCurrent >= 2) {
+          for (let i = an_currentAnswer.length - 1; i >= 0; i--) {
+            if (an_currentAnswer[i].char !== an_targetWord[i]) {
+              an_currentAnswer[i].used = false;
+              an_currentAnswer[i] = null;
+            }
+          }
+        } else {
+          an_currentAnswer.forEach(l => { if (l) l.used = false; });
+          an_currentAnswer = Array(an_targetWord.length).fill(null);
+        }
+        
+        an_isLocked = false;
+        drawAnagramBoard();
+      }, 500);
+    }
+  }
+</script>
