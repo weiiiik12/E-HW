@@ -1,0 +1,150 @@
+<style>
+  #module-mc { background-color: #f4f9f4; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; padding-bottom: 20px;}
+  .mc-header { background: linear-gradient(135deg, #6c9a75 0%, #4a7c59 100%); color: white; padding: 15px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; }
+  
+  .mc-target-area { background: #fff; margin: 20px; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+  .mc-target-text { font-size: 2.8rem; font-weight: bold; color: #2d3436; }
+  .mc-target-image { max-height: 180px; border-radius: 12px; }
+  .mc-target-audio { font-size: 4rem; cursor: pointer; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { transform: scale(0.95); } 50% { transform: scale(1.05); } 100% { transform: scale(0.95); } }
+
+  .mc-speed-box {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(255, 255, 255, 0.9); padding: 6px 20px; border-radius: 20px;
+    margin: -5px auto 15px auto; width: fit-content;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); border: 2px dashed #6c9a75; 
+  }
+  .mc-speed-box input[type=range] { width: 130px; touch-action: pan-x !important; accent-color: #6c9a75; cursor: pointer; }
+  .mc-speed-box span { font-weight: 900; color: #6c9a75; font-size: 1.1rem; }
+  #mc-speed-text { min-width: 45px; text-align: right; }
+  #mc-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
+
+  .mc-options-container { display: flex; flex-direction: column; gap: 12px; padding: 0 20px; }
+  .mc-option-btn { background: white; border: 3px solid #e0e0e0; border-radius: 12px; padding: 15px; font-size: 1.3rem; font-weight: bold; color: #444; transition: all 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-height: 60px; }
+  .mc-option-btn:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.05); }
+  .mc-option-btn.correct { background: #e8f5e9; border-color: #6c9a75; color: #2e7d32; }
+  .mc-option-btn.wrong { background: #ffebee; border-color: #ff7675; color: #d63031; animation: shake 0.4s; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .mc-option-img { max-height: 100px; border-radius: 8px; }
+
+  /* 🌟 手機專用瘦身設定，防止選項被裁切 */
+  @media (max-width: 500px) {
+    .mc-target-area { padding: 10px 15px; margin: 10px 15px; }
+    .mc-target-image { max-height: 110px; } 
+    .mc-target-text { font-size: 2rem; }
+    .mc-target-audio { font-size: 3rem; }
+    .mc-speed-box { padding: 4px 15px; margin: 0 auto 10px auto; transform: scale(0.9); }
+    .mc-options-container { gap: 8px; padding: 0 15px; }
+    .mc-option-btn { min-height: 45px; padding: 8px; font-size: 1.15rem; }
+    .mc-option-img { max-height: 70px; }
+    #module-mc { padding-bottom: 15px; }
+  }
+</style>
+
+<div id="module-mc" class="card d-none game-module">
+  <div class="mc-header">
+    <span>🎯 第 <span id="mc-progressText">1 / 10</span> 題</span>
+    <span>⏱️ <span id="mc-timerText">0</span> 秒</span>
+  </div>
+  
+  <div class="mc-target-area" id="mc-targetArea"></div>
+
+  <div class="mc-speed-box" id="mc-speed-box-container">
+    <span id="mc-speed-icon">🐇</span>
+    <input type="range" min="0.3" max="1.0" step="0.05" value="0.85" oninput="changeMCSpeed(this.value)">
+    <span id="mc-speed-text">0.85x</span>
+  </div>
+  
+  <div class="mc-options-container" id="mc-optionsArea"></div>
+</div>
+
+<script>
+  let mc_questions = [];
+  let mc_currentIndex = 0;
+  let mc_isLocked = false;
+  let mc_mistakes = 0; 
+  let mc_score = 100;
+
+  const sfxClick = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+  const sfxCorrect = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const sfxWrong = new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3');
+
+  document.addEventListener('timerUpdated', function(e) { let timerEl = document.getElementById('mc-timerText'); if(timerEl) timerEl.innerText = e.detail; });
+
+  function changeMCSpeed(val) {
+    if (typeof currentSpeechRate !== 'undefined') currentSpeechRate = parseFloat(val); 
+    document.getElementById('mc-speed-text').innerText = parseFloat(val).toFixed(2) + 'x';
+    let icon = '🐇'; if (val <= 0.45) icon = '🐌'; else if (val < 0.8) icon = '🐢';
+    document.getElementById('mc-speed-icon').innerText = icon;
+  }
+
+  function playMCAudio(url, fallbackWord) {
+    if(url && url !== 'undefined' && url !== '') { 
+      let audio = new Audio(url); 
+      if (typeof currentSpeechRate !== 'undefined') audio.playbackRate = currentSpeechRate;
+      audio.play().catch(() => speakWord(fallbackWord)); 
+    } else { speakWord(fallbackWord); }
+  }
+
+  function initGame_MC(questions) {
+    document.getElementById('module-mc').classList.remove('d-none');
+    mc_questions = questions; mc_currentIndex = 0; mc_score = 100; mc_mistakes = 0;
+    
+    document.getElementById('mc-speed-box-container').style.display = 'flex';
+    renderMCQuestion();
+  }
+
+  function renderMCQuestion() {
+    mc_isLocked = false;
+    let q = mc_questions[mc_currentIndex];
+    let qType = globalGameData.qType || 'english';
+    let optType = globalGameData.optType || 'chinese';
+    
+    document.getElementById('mc-progressText').innerText = (mc_currentIndex + 1) + " / " + mc_questions.length;
+
+    let targetHtml = "";
+    if (qType === 'audio') {
+      targetHtml = `<div class="mc-target-audio" onclick="playMCAudio('${q.target.audioUrl}', '${q.target.english}')">🔊</div><div style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">點擊可聽發音</div>`;
+    } else if (qType === 'image') {
+      targetHtml = q.target.imageUrl ? `<img src="${q.target.imageUrl}" class="mc-target-image" onclick="playMCAudio('${q.target.audioUrl}', '${q.target.english}')"><div style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">點圖可聽發音</div>` : `<div class="mc-target-text">無圖片</div>`;
+    } else if (qType === 'chinese') {
+      targetHtml = `<div class="mc-target-text" onclick="playMCAudio('${q.target.audioUrl}', '${q.target.english}')">${q.target.chinese}</div><div style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">點字可聽發音</div>`;
+    } else {
+      targetHtml = `<div class="mc-target-text" onclick="playMCAudio('${q.target.audioUrl}', '${q.target.english}')">${q.target.english}</div><div style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">點字可聽發音</div>`;
+    }
+    document.getElementById('mc-targetArea').innerHTML = targetHtml;
+
+    if (qType === 'audio') setTimeout(() => playMCAudio(q.target.audioUrl, q.target.english), 500);
+
+    let optionsHtml = "";
+    q.options.forEach((opt, idx) => {
+      let content = "";
+      if (optType === 'image') content = opt.imageUrl ? `<img src="${opt.imageUrl}" class="mc-option-img">` : "無圖";
+      else if (optType === 'chinese') content = opt.chinese;
+      else content = opt.english;
+      optionsHtml += `<div class="mc-option-btn" id="mc-opt-${idx}" onclick="checkMCAnswer(${idx}, '${opt.english}', '${q.target.english}')">${content}</div>`;
+    });
+    document.getElementById('mc-optionsArea').innerHTML = optionsHtml;
+  }
+
+  function checkMCAnswer(idx, selectedEnglish, targetEnglish) {
+    if (mc_isLocked) return;
+    mc_isLocked = true;
+    let btn = document.getElementById(`mc-opt-${idx}`);
+
+    if (selectedEnglish === targetEnglish) {
+      sfxCorrect.currentTime = 0; sfxCorrect.play().catch(()=>{});
+      btn.classList.add('correct');
+      setTimeout(() => {
+        mc_currentIndex++;
+        if (mc_currentIndex < mc_questions.length) { renderMCQuestion(); } 
+        else { finishGame(Math.max(0, mc_score)); }
+      }, 800);
+    } else {
+      sfxWrong.currentTime = 0; sfxWrong.play().catch(()=>{});
+      mc_mistakes++; mc_score -= 5;
+      btn.classList.add('wrong');
+      setTimeout(() => { btn.classList.remove('wrong'); mc_isLocked = false; }, 800);
+    }
+  }
+</script>
