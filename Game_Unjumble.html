@@ -1,0 +1,278 @@
+<style>
+  #module-unjumble { background-color: #f3e5f5; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; }
+  .uj-header { background: linear-gradient(135deg, #ab47bc 0%, #8e24aa 100%); color: white; padding: 15px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; }
+  
+  .text-purple { color: #8e24aa !important; }
+  
+  .uj-content { padding: 25px 20px; text-align: center; }
+  .uj-hint-box { min-height: 100px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; background: white; border-radius: 15px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+  .uj-hint-image { max-height: 140px; border-radius: 12px; cursor: pointer; }
+  .uj-hint-text { font-size: 2rem; font-weight: bold; color: #4a148c; cursor: pointer; line-height: 1.3;}
+  .uj-hint-audio { font-size: 4rem; cursor: pointer; animation: float 3s ease-in-out infinite; }
+  
+  /* 🌟 融入排版的專屬語速滑桿 */
+  .uj-speed-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 8px 20px;
+    border-radius: 20px;
+    margin: 0 auto 20px auto; 
+    width: fit-content;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+    border: 2px dashed #ce93d8;
+  }
+  .uj-speed-box input[type=range] {
+    width: 140px;
+    touch-action: pan-x !important; /* 確保平板上可以順暢左右拖曳 */
+    accent-color: #ab47bc; /* 專屬紫色滑桿 */
+    cursor: pointer;
+  }
+  .uj-speed-box span {
+    font-weight: 900;
+    color: #8e24aa;
+    font-size: 1.1rem;
+  }
+  #uj-speed-text { min-width: 45px; text-align: right; }
+  #uj-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
+
+  /* 填答區 */
+  .uj-sentence-area { 
+    display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 8px; margin-bottom: 30px; 
+    min-height: 80px; padding: 15px; border-bottom: 3px dashed #ce93d8; background: rgba(255,255,255,0.5); border-radius: 12px;
+  }
+  
+  /* 單字積木 */
+  .uj-word-btn { 
+    padding: 10px 18px; border-radius: 8px; font-size: 1.4rem; font-weight: bold; 
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15); font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif; letter-spacing: 1px;
+  }
+  
+  .uj-sentence-area .uj-word-btn { background: #fff; color: #8e24aa; border: 2px solid #ab47bc; box-shadow: 0 4px 0 #ab47bc; animation: popIn 0.2s;}
+  .uj-sentence-area .uj-word-btn:active { transform: translateY(4px); box-shadow: 0 0px 0 #ab47bc; }
+  
+  .uj-pool-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 10px; }
+  .uj-pool-area .uj-word-btn { background: #ba68c8; color: white; border: 2px solid #fff; box-shadow: 0 5px 0 #8e24aa; }
+  .uj-pool-area .uj-word-btn:active { transform: translateY(5px); box-shadow: 0 0px 0 #8e24aa; }
+  .uj-pool-area .uj-word-btn.hidden { opacity: 0; pointer-events: none; transform: scale(0); }
+
+  .uj-shake { animation: shake 0.5s; }
+  .uj-success-glow .uj-word-btn { background: #66bb6a !important; border-color: #43a047 !important; box-shadow: 0 4px 0 #43a047 !important; color: white !important; pointer-events: none; }
+</style>
+
+<div id="module-unjumble" class="card d-none game-module">
+  <div class="uj-header">
+    <span>🎯 第 <span id="uj-progressText">1 / 10</span> 題 <span id="uj-scoreDisplay" class="badge bg-light text-purple ms-2">💯 100</span></span>
+    <span>⏱️ <span id="uj-timerText">0</span> 秒</span>
+  </div>
+  <div class="uj-content">
+    <div id="uj-hintArea" class="uj-hint-box"></div>
+    
+    <!-- 🌟 融入排版內的語速滑桿 -->
+    <div class="uj-speed-box">
+      <span id="uj-speed-icon">🐇</span>
+      <input type="range" min="0.3" max="1.0" step="0.05" value="0.85" oninput="changeUjSpeed(this.value)">
+      <span id="uj-speed-text">0.85x</span>
+    </div>
+
+    <div id="uj-sentenceArea" class="uj-sentence-area"></div>
+    <div id="uj-poolArea" class="uj-pool-area"></div>
+  </div>
+</div>
+
+<script>
+  let uj_questions = [];
+  let uj_currentIndex = 0;
+  let uj_targetWords = [];
+  let uj_currentSentence = [];
+  let uj_pool = [];
+  let uj_isLocked = false;
+  let uj_score = 100;
+  let uj_mistakesCurrent = 0;
+
+  const uj_sfxClick = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+  const uj_sfxCorrect = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const uj_sfxWrong = new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3');
+
+  document.addEventListener('timerUpdated', function(e) { let timerEl = document.getElementById('uj-timerText'); if(timerEl) timerEl.innerText = e.detail; });
+
+  // 🌟 專屬的語速控制邏輯
+  function changeUjSpeed(val) {
+    // 同步數值給主機大腦 (如果在主機有宣告這個變數的話)
+    if (typeof currentSpeechRate !== 'undefined') {
+      currentSpeechRate = parseFloat(val); 
+    }
+    document.getElementById('uj-speed-text').innerText = parseFloat(val).toFixed(2) + 'x';
+    
+    let icon = '🐇';
+    if (val <= 0.45) icon = '🐌';
+    else if (val < 0.8) icon = '🐢';
+    document.getElementById('uj-speed-icon').innerText = icon;
+  }
+
+  function initGame_Unjumble(questions) {
+    document.getElementById('module-unjumble').classList.remove('d-none');
+    
+    // 🌟 關鍵：自動隱藏主機底下那個綠色的浮動滑桿
+    let globalSlider = document.getElementById('speedControlPanel');
+    if(globalSlider) globalSlider.classList.add('d-none');
+
+    uj_questions = questions;
+    uj_currentIndex = 0;
+    uj_score = 100;
+    document.getElementById('uj-scoreDisplay').innerText = `💯 ${uj_score}`;
+    
+    document.getElementById('uj-scoreDisplay').classList.remove('bg-danger', 'text-white');
+    document.getElementById('uj-scoreDisplay').classList.add('bg-light', 'text-purple');
+    
+    renderUnjumbleQuestion();
+  }
+
+  function playUjAudioCurrent() {
+    let q = uj_questions[uj_currentIndex];
+    let targetText = (q.sentence && q.sentence.trim() !== "") ? q.sentence : q.english;
+    speakWord(targetText); 
+  }
+
+  function renderUnjumbleQuestion() {
+    uj_isLocked = false;
+    uj_mistakesCurrent = 0;
+    
+    let q = uj_questions[uj_currentIndex];
+    let hintType = globalGameData.qType || 'chinese'; 
+    let targetText = (q.sentence && q.sentence.trim() !== "") ? q.sentence : q.english;
+    
+    document.getElementById('uj-progressText').innerText = (uj_currentIndex + 1) + " / " + uj_questions.length;
+    
+    // 🌟 關鍵修改：判斷要顯示哪種中文
+    let displayChinese = (q.sentenceChinese && q.sentenceChinese.trim() !== "") ? q.sentenceChinese : q.chinese;
+    
+    let hintHtml = "";
+    if (hintType === 'image') {
+      hintHtml = q.imageUrl ? `<img src="${q.imageUrl}" class="uj-hint-image" onclick="playUjAudioCurrent()">` : `<div class="uj-hint-text">無圖片</div>`;
+    } else if (hintType === 'audio') {
+      hintHtml = `<div class="uj-hint-audio" onclick="playUjAudioCurrent()">🔊</div>`;
+    } else {
+      // 👈 這裡改為顯示 displayChinese (K欄的整句翻譯)
+      hintHtml = `<div class="uj-hint-text" onclick="playUjAudioCurrent()">${displayChinese}</div>`;
+    }
+    document.getElementById('uj-hintArea').innerHTML = hintHtml;
+    
+    setTimeout(() => playUjAudioCurrent(), 400);
+
+    let rawSentence = targetText.trim();
+    uj_targetWords = rawSentence.split(' ').filter(word => word.length > 0);
+    uj_currentSentence = [];
+    
+    let wordsToScramble = [...uj_targetWords];
+    wordsToScramble.sort(() => 0.5 - Math.random());
+    uj_pool = wordsToScramble.map((w, idx) => ({ id: idx, word: w, used: false }));
+    
+    drawUjBoard();
+  }
+  
+  function drawUjBoard() {
+    let sentenceHtml = '';
+    uj_currentSentence.forEach((item, index) => {
+      sentenceHtml += `<div class="uj-word-btn" onclick="returnUjWord(${index})">${item.word}</div>`;
+    });
+    if(uj_currentSentence.length === 0) {
+      sentenceHtml = `<div style="color: #ce93d8; width: 100%; text-align: center; font-weight: bold;">依序點擊下方單字排成句子</div>`;
+    }
+    document.getElementById('uj-sentenceArea').innerHTML = sentenceHtml;
+
+    let poolHtml = '';
+    uj_pool.forEach(p => {
+      let hideClass = p.used ? 'hidden' : '';
+      poolHtml += `<div class="uj-word-btn ${hideClass}" onclick="useUjWord(${p.id})">${p.word}</div>`;
+    });
+    document.getElementById('uj-poolArea').innerHTML = poolHtml;
+  }
+
+  function useUjWord(poolId) {
+    if (uj_isLocked) return;
+    uj_sfxClick.currentTime = 0; uj_sfxClick.play().catch(()=>{});
+    
+    let poolItem = uj_pool.find(x => x.id === poolId);
+    poolItem.used = true;
+    uj_currentSentence.push(poolItem);
+    
+    drawUjBoard();
+    checkUjAnswer();
+  }
+
+  function returnUjWord(sentenceIndex) {
+    if (uj_isLocked) return;
+    uj_sfxClick.currentTime = 0; uj_sfxClick.play().catch(()=>{});
+    
+    let poolItem = uj_currentSentence[sentenceIndex];
+    poolItem.used = false;
+    uj_currentSentence.splice(sentenceIndex, 1);
+    
+    drawUjBoard();
+  }
+
+  function checkUjAnswer() {
+    if (uj_currentSentence.length < uj_targetWords.length) return; 
+    
+    uj_isLocked = true;
+    let isCorrect = true;
+    
+    for (let i = 0; i < uj_targetWords.length; i++) {
+      if (uj_currentSentence[i].word !== uj_targetWords[i]) {
+        isCorrect = false; break;
+      }
+    }
+    
+    if (isCorrect) {
+      uj_sfxCorrect.currentTime = 0; uj_sfxCorrect.play().catch(()=>{});
+      document.getElementById('uj-sentenceArea').classList.add('uj-success-glow');
+      
+      setTimeout(() => {
+        document.getElementById('uj-sentenceArea').classList.remove('uj-success-glow');
+        uj_currentIndex++;
+        if (uj_currentIndex < uj_questions.length) {
+          renderUnjumbleQuestion();
+        } else {
+          finishGame(Math.max(0, uj_score));
+        }
+      }, 1500);
+    } else {
+      uj_mistakesCurrent++;
+      uj_score = Math.max(0, uj_score - 5);
+      
+      let scoreBadge = document.getElementById('uj-scoreDisplay');
+      scoreBadge.innerText = `💯 ${uj_score}`;
+      scoreBadge.classList.replace('bg-light', 'bg-danger');
+      scoreBadge.classList.replace('text-purple', 'text-white');
+      
+      uj_sfxWrong.currentTime = 0; uj_sfxWrong.play().catch(()=>{});
+      let sentenceArea = document.getElementById('uj-sentenceArea');
+      sentenceArea.classList.add('uj-shake');
+      
+      setTimeout(() => {
+        sentenceArea.classList.remove('uj-shake');
+        scoreBadge.classList.replace('bg-danger', 'bg-light');
+        scoreBadge.classList.replace('text-white', 'text-purple');
+        
+        if (uj_mistakesCurrent >= 2) {
+          for (let i = uj_currentSentence.length - 1; i >= 0; i--) {
+            if (uj_currentSentence[i].word !== uj_targetWords[i]) {
+              uj_currentSentence[i].used = false;
+              uj_currentSentence.splice(i, 1);
+            }
+          }
+        } else {
+          uj_currentSentence.forEach(item => { item.used = false; });
+          uj_currentSentence = [];
+        }
+        
+        uj_isLocked = false;
+        drawUjBoard();
+      }, 600);
+    }
+  }
+</script>
