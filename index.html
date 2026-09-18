@@ -8,11 +8,11 @@
   <style>
     body { 
       background-color: #f4f9f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; 
-      margin: 0; padding: 0; width: 100vw; min-height: 100vh; overflow-y: auto; touch-action: pan-y; 
+      margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; touch-action: none; 
       -webkit-user-select: none; user-select: none; display: flex; align-items: center; justify-content: center; 
     }
     input { user-select: auto !important; -webkit-user-select: auto !important; }
-    .game-wrapper { width: 100%; max-width: 700px; min-height: 100vh; padding: 20px 10px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
+    .game-wrapper { width: 100%; max-width: 650px; max-height: 100vh; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; }
     .card { border-radius: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); border: none; margin: 0; width: 100%; }
     .header-bar { color: white; border-radius: 20px 20px 0 0; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
     .header-login { background-color: #f7a072; }
@@ -45,6 +45,7 @@
       </div>
     </div>
 
+    <!-- 🌟 現在這裡是空的！系統會根據任務模式，自動把對應的 HTML 檔案抓進來貼在這裡 -->
     <div id="game-container"></div>
 
     <div id="step-result" class="card d-none">
@@ -67,6 +68,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // 🌟 填入你剛剛部署的 GAS 網頁應用程式網址 (API 大腦)
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw4MFx9qi8URQ2MHp10LbHTn4VwMd5w29VoI7N33fAb8shyhrpSGbNmpHgGGrRVij8c/exec"; 
     
     const urlParams = new URLSearchParams(window.location.search);
@@ -75,6 +77,10 @@
     let globalGameData = {}; let globalQuestions = []; let currentMode = "";
     let globalTimer = 0; let globalTimerInterval = null; let currentSpeechRate = 0.85; 
 
+###############################################################################################################
+###############################################################################################################
+    
+    // 🌟 遊戲模組對應表 (模式名稱對應檔名)
     const moduleFiles = {
       "選擇題": "Game_MC.html",
       "翻牌記憶": "Game_Memory.html",
@@ -82,6 +88,9 @@
       "打地鼠": "Game_WhackAMole.html",
       "重組句子": "Game_Unjumble.html"
     };
+
+###############################################################################################################
+###############################################################################################################
 
     function speakWord(text) {
       if (!text || text === 'undefined') return;
@@ -93,9 +102,11 @@
       }
     }
 
+    // 🌟 特殊函數：用於將 fetch 進來的 HTML 字串安全地注入並「執行內部的 <script>」
     function injectHTML(containerId, htmlContent) {
       const container = document.getElementById(containerId);
       container.innerHTML = htmlContent;
+      // 必須手動抽出 script 標籤重新建立，瀏覽器才會執行它們
       Array.from(container.querySelectorAll("script")).forEach(oldScript => {
         const newScript = document.createElement("script");
         Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
@@ -107,6 +118,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       if(!GAME_ID) { document.getElementById('gameTitleDisplay').innerText = "❌ 缺少任務代碼"; return; }
       
+      // 1. 先跟大腦要題目與遊戲模式
       fetch(`${GAS_API_URL}?action=getQuestions&gameId=${GAME_ID}`)
         .then(res => res.json())
         .then(res => {
@@ -119,13 +131,17 @@
             let displayMode = res.mode;
             if (res.qType && res.optType) { displayMode += ` (${res.qType} ➔ ${res.optType})`; }
             document.getElementById('gameModeDisplay').innerText = "模式：" + displayMode;
-            
+
+
+          
+            // 🌟 2. 知道模式後，去抓對應的 HTML 檔案
             let targetFile = moduleFiles[currentMode];
             if (targetFile) {
               fetch(targetFile)
                 .then(htmlRes => htmlRes.text())
                 .then(htmlContent => {
                   injectHTML("game-container", htmlContent);
+                  // HTML 載入且 script 執行完畢後，才開放按鈕
                   document.getElementById('startBtn').disabled = false;
                 });
             } else {
@@ -141,8 +157,10 @@
 
     function fetchLoginLeaderboard() {
       document.getElementById('loginLeaderboard').innerHTML = '<div class="text-center text-muted small py-2">讀取中...</div>';
-      fetch(`${GAS_API_URL}?action=getRecords&gameId=${GAME_ID}`)
-      .then(res => res.json()).then(res => {
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getRecords', gameId: GAME_ID })
+      }).then(res => res.json()).then(res => {
         let lbDiv = document.getElementById('loginLeaderboard'); lbDiv.innerHTML = '';
         if(!res.records || res.records.length === 0) {
            lbDiv.innerHTML = '<div class="text-center text-muted small py-2" style="background: #f8f9fa; border-radius: 8px;">目前還沒有人挑戰，搶下第一名吧！</div>'; return;
@@ -162,6 +180,7 @@
       globalTimer = 0;
       globalTimerInterval = setInterval(() => { globalTimer++; document.dispatchEvent(new CustomEvent('timerUpdated', { detail: globalTimer })); }, 1000);
 
+      // 動態載入進來的 function 現在可以正常呼叫了
       if (currentMode === "選擇題") { initGame_MC(globalQuestions); } 
       else if (currentMode === "翻牌記憶") { initGame_Memory(globalQuestions); } 
       else if (currentMode === "猜字謎") { initGame_Anagram(globalQuestions); } 
@@ -177,8 +196,10 @@
       document.getElementById('finalTimeDisplay').innerText = globalTimer;
       let name = document.getElementById('sName').value.trim();
       
-      fetch(`${GAS_API_URL}?action=submitScore&gameId=${GAME_ID}&sName=${encodeURIComponent(name)}&score=${score}&timeSpent=${globalTimer}`)
-      .then(res => res.json()).then(res => {
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'submitScore', gameId: GAME_ID, sName: name, score: score, timeSpent: globalTimer })
+      }).then(res => res.json()).then(res => {
         renderLeaderboard(res.records, name, globalTimer);
       });
     }
