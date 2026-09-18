@@ -1,0 +1,243 @@
+<style>
+  #module-memory { background-color: #fffaf0; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; padding-bottom: 15px;}
+  .mm-header { background: linear-gradient(135deg, #ff9f43 0%, #ff7f50 100%); color: white; padding: 12px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; }
+  
+  /* 🌟 專屬的橘色主題語速滑桿 */
+  .mm-speed-box {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(255, 255, 255, 0.9); padding: 6px 20px; border-radius: 20px;
+    margin: 15px auto 5px auto; width: fit-content;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 2px dashed #ff9f43; 
+  }
+  .mm-speed-box input[type=range] { width: 130px; touch-action: pan-x !important; accent-color: #ff7f50; cursor: pointer; }
+  .mm-speed-box span { font-weight: 900; color: #ff7f50; font-size: 1.1rem; }
+  #mm-speed-text { min-width: 45px; text-align: right; }
+  #mm-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
+
+  /* 🌟 新增：開場記憶時間的紅色橫幅 */
+  #mm-memoBanner {
+    background: #ff4757; color: white; font-size: 1.2rem; font-weight: 900; text-align: center;
+    padding: 10px; margin: 15px 20px 0 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);
+    animation: pulseBanner 1s infinite;
+  }
+  @keyframes pulseBanner { 0%, 100% { transform: scale(0.98); opacity: 0.9;} 50% { transform: scale(1.02); opacity: 1;} }
+
+  /* 卡片網格排版 */
+  .mm-grid { 
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; 
+    padding: 15px 20px; perspective: 1000px; 
+  }
+  
+  .mm-card { 
+    width: 85px; height: 105px; cursor: pointer; position: relative; 
+    transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+  }
+  .mm-card.flipped { transform: rotateY(180deg); }
+  
+  /* 🌟 修復 3D 卡頓問題：加上 border-box 確保邊框不影響結構 */
+  .mm-card-face { 
+    position: absolute; width: 100%; height: 100%; backface-visibility: hidden; 
+    border-radius: 12px; display: flex; align-items: center; justify-content: center; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1); box-sizing: border-box;
+  }
+  
+  .mm-card-back { background: linear-gradient(135deg, #6c5ce7 0%, #8e44ad 100%); color: white; font-size: 2.2rem; font-weight: bold; border: 2px solid #fff; }
+  
+  .mm-card-front { background: white; transform: rotateY(180deg); border: 3px solid #ff9f43; padding: 6px; text-align: center; }
+  .mm-card-front img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; pointer-events: none;}
+  .mm-card-front span { font-size: 1.1rem; font-weight: 800; color: #2d3436; word-break: break-word; line-height: 1.1; pointer-events: none;}
+  
+  .mm-card.matched .mm-card-front { background: #e8f5e9; border-color: #00b894; opacity: 0.9; box-shadow: 0 0 10px rgba(0, 184, 148, 0.5); }
+
+  @media (max-width: 450px) { 
+    .mm-card { width: 75px; height: 95px; } 
+    .mm-grid { gap: 10px; padding: 10px 15px;} 
+    .mm-card-front span { font-size: 0.95rem; }
+  }
+</style>
+
+<div id="module-memory" class="card d-none game-module">
+  <div class="mm-header">
+    <span>🎯 成功：<span id="mm-progressText">0</span> 組</span>
+    <span>⏱️ <span id="mm-timerText">0</span> 秒</span>
+  </div>
+
+  <!-- 🌟 記憶倒數橫幅 -->
+  <div id="mm-memoBanner" class="d-none">👀 請記住卡片... 剩餘 <span id="mm-memoTimer">3</span> 秒！</div>
+  
+  <div class="mm-speed-box">
+    <span id="mm-speed-icon">🐇</span>
+    <input type="range" min="0.3" max="1.0" step="0.05" value="0.85" oninput="changeMMSpeed(this.value)">
+    <span id="mm-speed-text">0.85x</span>
+  </div>
+
+  <div class="mm-grid" id="mm-gridArea"></div>
+</div>
+
+<script>
+  let mm_questions = [];
+  let mm_cardsData = [];
+  let mm_flippedCards = [];
+  let mm_matchedPairs = 0;
+  let mm_totalPairs = 0;
+  let mm_isLocked = false;
+
+  const mm_sfxClick = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3');
+  const mm_sfxCorrect = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const mm_sfxWrong = new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3');
+  const mm_sfxLevelUp = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
+
+  document.addEventListener('timerUpdated', function(e) { let timerEl = document.getElementById('mm-timerText'); if(timerEl) timerEl.innerText = e.detail; });
+
+  function changeMMSpeed(val) {
+    if (typeof currentSpeechRate !== 'undefined') {
+      currentSpeechRate = parseFloat(val); 
+    }
+    document.getElementById('mm-speed-text').innerText = parseFloat(val).toFixed(2) + 'x';
+    
+    let icon = '🐇';
+    if (val <= 0.45) icon = '🐌';
+    else if (val < 0.8) icon = '🐢';
+    document.getElementById('mm-speed-icon').innerText = icon;
+  }
+
+  function playMMAudio(url, fallbackWord) {
+    if(url && url !== 'undefined' && url !== '') { 
+      let audio = new Audio(url); 
+      if (typeof currentSpeechRate !== 'undefined') { audio.playbackRate = currentSpeechRate; }
+      audio.play().catch(() => speakWord(fallbackWord)); 
+    } else { speakWord(fallbackWord); }
+  }
+
+  function getMMCardContent(item, type) {
+    if (type === 'image') return item.imageUrl ? `<img src="${item.imageUrl}">` : `<span>無圖</span>`;
+    if (type === 'chinese') return `<span>${item.chinese}</span>`;
+    if (type === 'audio') return `<span style="font-size: 2.5rem;">🔊</span>`;
+    return `<span>${item.english}</span>`;
+  }
+
+  function initGame_Memory(questions) {
+    document.getElementById('module-memory').classList.remove('d-none');
+    
+    let globalSlider = document.getElementById('speedControlPanel');
+    if(globalSlider) globalSlider.classList.add('d-none');
+
+    mm_questions = questions;
+    mm_totalPairs = mm_questions.length;
+    mm_matchedPairs = 0;
+    mm_flippedCards = [];
+    
+    // 🌟 遊戲一開始立刻鎖死牌桌，不准點擊！
+    mm_isLocked = true; 
+    
+    document.getElementById('mm-progressText').innerText = mm_matchedPairs;
+    
+    let qType = globalGameData.qType || 'english';
+    let optType = globalGameData.optType || 'chinese';
+
+    mm_cardsData = [];
+    mm_questions.forEach((q, index) => {
+      mm_cardsData.push({ id: `cardA_${index}`, pairId: index, contentHtml: getMMCardContent(q, qType), audioUrl: q.audioUrl, ttsText: q.english });
+      mm_cardsData.push({ id: `cardB_${index}`, pairId: index, contentHtml: getMMCardContent(q, optType), audioUrl: q.audioUrl, ttsText: q.english });
+    });
+
+    mm_cardsData.sort(() => 0.5 - Math.random());
+
+    let gridHtml = "";
+    mm_cardsData.forEach((card, idx) => {
+      // 🌟 開場直接加上 'flipped' 讓所有卡片處於翻開狀態
+      gridHtml += `
+        <div class="mm-card flipped" id="mm-card-${idx}" onclick="flipCard(${idx})">
+          <div class="mm-card-face mm-card-back">?</div>
+          <div class="mm-card-face mm-card-front">${card.contentHtml}</div>
+        </div>
+      `;
+    });
+    document.getElementById('mm-gridArea').innerHTML = gridHtml;
+
+    // 🌟 啟動 3 秒記憶倒數
+    let memoBanner = document.getElementById('mm-memoBanner');
+    let memoTimerEl = document.getElementById('mm-memoTimer');
+    memoBanner.classList.remove('d-none');
+    
+    let memoTime = 3;
+    memoTimerEl.innerText = memoTime;
+
+    let memoInterval = setInterval(() => {
+      memoTime--;
+      if (memoTime > 0) {
+        memoTimerEl.innerText = memoTime;
+      } else {
+        clearInterval(memoInterval);
+        memoBanner.classList.add('d-none');
+        
+        // 倒數結束，把所有卡片蓋回去
+        document.querySelectorAll('.mm-card').forEach(c => c.classList.remove('flipped'));
+        
+        // 等待 0.4 秒翻牌動畫結束後，正式解鎖讓學生點擊
+        setTimeout(() => { mm_isLocked = false; }, 400);
+      }
+    }, 1000);
+  }
+
+  function flipCard(idx) {
+    if (mm_isLocked) return;
+    
+    let cardEl = document.getElementById(`mm-card-${idx}`);
+    if (cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) return;
+
+    mm_sfxClick.currentTime = 0; mm_sfxClick.play().catch(()=>{});
+    cardEl.classList.add('flipped');
+    
+    let cardData = mm_cardsData[idx];
+    playMMAudio(cardData.audioUrl, cardData.ttsText);
+
+    mm_flippedCards.push({ element: cardEl, data: cardData });
+
+    // 🌟 關鍵防連點裝甲：只要翻開兩張，立刻鎖死整個牌桌！
+    if (mm_flippedCards.length === 2) {
+      mm_isLocked = true; 
+      checkMMMatch();
+    }
+  }
+
+  function checkMMMatch() {
+    let card1 = mm_flippedCards[0];
+    let card2 = mm_flippedCards[1];
+
+    if (card1.data.pairId === card2.data.pairId) {
+      setTimeout(() => {
+        mm_sfxCorrect.currentTime = 0; mm_sfxCorrect.play().catch(()=>{});
+        card1.element.classList.add('matched');
+        card2.element.classList.add('matched');
+        
+        mm_matchedPairs++;
+        document.getElementById('mm-progressText').innerText = mm_matchedPairs;
+        
+        resetMMFlipped();
+        
+        if (mm_matchedPairs === mm_totalPairs) {
+          setTimeout(() => {
+            mm_sfxLevelUp.currentTime = 0; mm_sfxLevelUp.play().catch(()=>{});
+            finishGame(100); 
+          }, 1000);
+        }
+      }, 400);
+
+    } else {
+      setTimeout(() => {
+        mm_sfxWrong.currentTime = 0; mm_sfxWrong.play().catch(()=>{});
+        card1.element.classList.remove('flipped');
+        card2.element.classList.remove('flipped');
+        
+        // 等待蓋回去的動畫結束後再解鎖
+        setTimeout(() => { resetMMFlipped(); }, 400); 
+      }, 1000); 
+    }
+  }
+
+  function resetMMFlipped() {
+    mm_flippedCards = [];
+    mm_isLocked = false;
+  }
+</script>
