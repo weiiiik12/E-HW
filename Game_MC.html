@@ -1,56 +1,82 @@
 <style>
-  #module-mc { background-color: #f4f9f4; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; padding-bottom: 20px; display: flex; flex-direction: column; height: 100%; }
-  .mc-header { background: linear-gradient(135deg, #6c9a75 0%, #4a7c59 100%); color: white; padding: 15px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; flex-shrink: 0; }
+  #module-mc { 
+    background-color: #f4f9f4; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+    width: 100%; height: 100%; /* 填滿外層卡片 */
+    display: flex; flex-direction: column; /* 垂直排版 */
+    border: 4px solid #fff; overflow: hidden; 
+  }
+  .mc-header { 
+    background: linear-gradient(135deg, #6c9a75 0%, #4a7c59 100%); color: white; 
+    padding: 10px 20px; display: flex; justify-content: space-between; 
+    font-weight: 900; font-size: 1.2rem; 
+    flex-shrink: 0; /* 標題區絕對不准縮小 */
+  }
   
-  .mc-target-area { background: #fff; margin: 20px; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); flex-shrink: 0; }
-  .mc-target-text { font-size: 2.8rem; font-weight: bold; color: #2d3436; }
-  .mc-target-image { max-height: 15vh; max-width: 100%; object-fit: contain; border-radius: 12px; }
-  .mc-target-audio { font-size: 4rem; cursor: pointer; animation: pulse 2s infinite; }
+  .mc-target-area { 
+    background: #fff; margin: 15px 20px; padding: 15px; border-radius: 15px; 
+    text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+    flex-shrink: 0; /* 題目區絕對不准縮小 */
+  }
+  .mc-target-text { font-size: 2.5rem; font-weight: bold; color: #2d3436; }
+  .mc-target-image { max-height: 140px; max-width: 100%; object-fit: contain; border-radius: 12px; }
+  .mc-target-audio { font-size: 3.5rem; cursor: pointer; animation: pulse 2s infinite; margin-bottom: 5px; }
   @keyframes pulse { 0% { transform: scale(0.95); } 50% { transform: scale(1.05); } 100% { transform: scale(0.95); } }
 
   .mc-speed-box {
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    background: rgba(255, 255, 255, 0.9); padding: 6px 20px; border-radius: 20px;
-    margin: -5px auto 15px auto; width: fit-content;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); border: 2px dashed #6c9a75; flex-shrink: 0; 
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: rgba(255, 255, 255, 0.9); padding: 5px 15px; border-radius: 20px;
+    margin: 0 auto 10px auto; width: fit-content;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); border: 2px dashed #6c9a75; 
+    flex-shrink: 0; /* 滑桿區絕對不准縮小 */
   }
-  .mc-speed-box input[type=range] { width: 130px; touch-action: pan-x !important; accent-color: #6c9a75; cursor: pointer; }
-  .mc-speed-box span { font-weight: 900; color: #6c9a75; font-size: 1.1rem; }
-  #mc-speed-text { min-width: 45px; text-align: right; }
-  #mc-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
-
-  /* 🌟 核心修復：改用 Grid 排版 */
+  .mc-speed-box input[type=range] { width: 110px; touch-action: pan-x !important; accent-color: #6c9a75; cursor: pointer; }
+  .mc-speed-box span { font-weight: 900; color: #6c9a75; font-size: 1rem; }
+  
+  /* 🌟 選項區域：彈性拿取剩餘空間，裝不下就自己滑動 */
   .mc-options-container { 
+    flex: 1 1 auto; /* 填滿剩餘的所有高度 */
+    min-height: 0; /* 🌟 救命魔法：防止外框被撐破，允許內部正常產生捲軸 */
+    overflow-y: auto; /* 允許內部捲動 */
+    padding: 0 20px 20px 20px;
+    
     display: grid; 
-    grid-template-columns: 1fr; /* 預設手機：直排 1 欄 */
+    grid-template-columns: 1fr; /* 手機預設：直排 1 欄 */
     gap: 12px; 
-    padding: 0 20px; 
-    overflow-y: auto; /* 選項太多時允許內部滑動 */
+    align-content: start; /* 選項靠上對齊，不要硬拉長 */
   }
   
-  /* 🌟 核心修復：當螢幕大於 768px 時，變成 2 欄 */
+  /* 🌟 當螢幕寬度大於 768px (橫式平板、電腦)，自動切換成 2x2 雙排 */
   @media (min-width: 768px) {
     .mc-options-container { grid-template-columns: 1fr 1fr; gap: 15px; }
   }
 
-  .mc-option-btn { background: white; border: 3px solid #e0e0e0; border-radius: 12px; padding: 15px; font-size: 1.3rem; font-weight: bold; color: #444; transition: all 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-height: 60px; }
+  .mc-option-btn { 
+    background: white; border: 3px solid #e0e0e0; border-radius: 12px; padding: 10px; 
+    font-size: 1.3rem; font-weight: bold; color: #444; transition: all 0.2s; cursor: pointer; 
+    display: flex; align-items: center; justify-content: center; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+    min-height: 80px; /* 給按鈕一個合理的基本高度，絕對不准再被壓扁 */
+  }
   .mc-option-btn:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.05); }
   .mc-option-btn.correct { background: #e8f5e9; border-color: #6c9a75; color: #2e7d32; }
   .mc-option-btn.wrong { background: #ffebee; border-color: #ff7675; color: #d63031; animation: shake 0.4s; }
-  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-  .mc-option-img { max-height: 12vh; max-width: 100%; object-fit: contain; border-radius: 8px; }
+  
+  .mc-option-img { 
+    max-height: 90px; /* 限制圖片高度，絕對不撐破按鈕 */
+    max-width: 100%; 
+    object-fit: contain; 
+    border-radius: 8px; 
+  }
 
-  /* 🌟 手機專用瘦身設定 */
+  /* 🌟 手機專用瘦身設定，節省小螢幕空間 */
   @media (max-width: 500px) {
-    .mc-target-area { padding: 10px 15px; margin: 10px 15px; }
-    .mc-target-image { max-height: 12vh; } 
+    .mc-target-area { margin: 10px 15px; padding: 10px; }
+    .mc-target-image { max-height: 100px; } 
     .mc-target-text { font-size: 2rem; }
-    .mc-target-audio { font-size: 3rem; }
-    .mc-speed-box { padding: 4px 15px; margin: 0 auto 10px auto; transform: scale(0.9); }
-    .mc-options-container { gap: 8px; padding: 0 15px; }
-    .mc-option-btn { min-height: 45px; padding: 8px; font-size: 1.15rem; }
-    .mc-option-img { max-height: 10vh; }
-    #module-mc { padding-bottom: 15px; }
+    .mc-target-audio { font-size: 3rem; margin-bottom: 0; }
+    .mc-options-container { padding: 0 15px 15px 15px; gap: 10px; }
+    .mc-option-btn { min-height: 60px; padding: 5px; }
+    .mc-option-img { max-height: 70px; }
   }
 </style>
 
