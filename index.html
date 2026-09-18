@@ -40,20 +40,25 @@
       object-fit: contain;
     }
 
-    /* 🌟 5. 終極響應式排版 (手機 1x4，電腦/橫式平板 2x2) */
-    /* 抓出 Bootstrap 的選項容器，強制套用我們的 Grid 魔法 */
-    #game-container .d-grid, #game-container .options-container, #mc-options {
-      display: grid !important;
-      grid-template-columns: 1fr; /* 預設 (手機)：直排 1 個 (100%寬) */
-      gap: 15px !important;
-    }
-    
-    @media (min-width: 768px) {
-      /* 當螢幕寬度大於 768px (平板橫放、電腦) 時，自動啟動這裡的設定 */
-      #game-container .d-grid, #game-container .options-container, #mc-options {
-        grid-template-columns: 1fr 1fr !important; /* 變成左右 2 個 (50% + 50%) */
-      }
-    }
+    /* 🌟 5. 終極響應式排版 (升級捕捉版) */
+#game-container [id*="option" i], 
+#game-container [class*="option" i], 
+#game-container .d-grid,
+#game-container .card-body > div:last-child {
+  display: grid !important;
+  grid-template-columns: 1fr !important; 
+  gap: 15px !important;
+}
+
+@media (min-width: 768px) {
+  /* 當螢幕大於 768px 時，強制切換為 2x2 */
+  #game-container [id*="option" i], 
+  #game-container [class*="option" i], 
+  #game-container .d-grid,
+  #game-container .card-body > div:last-child {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
 
     .header-bar { color: white; border-radius: 20px 20px 0 0; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
     .header-login { background-color: #f7a072; }
