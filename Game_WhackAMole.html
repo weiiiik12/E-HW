@@ -1,0 +1,316 @@
+<style>
+  #module-whack-a-mole { background-color: #e8f5e9; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative; width: 100%; border: 4px solid #fff; padding-bottom: 15px;}
+  .wm-header { background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; padding: 12px 25px; display: flex; justify-content: space-between; font-weight: 900; font-size: 1.2rem; }
+  
+  .wm-target-area { background: #fff; margin: 10px 20px; padding: 10px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); transition: all 0.3s; }
+  .wm-target-text { font-size: 2.2rem; font-weight: bold; color: #2d3436; cursor: pointer;}
+  .wm-target-audio { font-size: 3.5rem; cursor: pointer; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { transform: scale(0.95); } 50% { transform: scale(1.05); } 100% { transform: scale(0.95); } }
+
+  .wm-speed-box {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(255, 255, 255, 0.8); padding: 6px 20px; border-radius: 20px;
+    margin: 0 auto 10px auto; width: fit-content;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); border: 2px dashed #00b894; 
+  }
+  .wm-speed-box input[type=range] { width: 130px; touch-action: pan-x !important; accent-color: #00b894; cursor: pointer; }
+  .wm-speed-box span { font-weight: 900; color: #00b894; font-size: 1.1rem; }
+  #wm-speed-text { min-width: 45px; text-align: right; }
+  #wm-speed-icon { text-align: left; min-width: 30px; font-size: 1.3rem; }
+
+  .wm-progress-wrapper { padding: 0 25px 5px; }
+  .wm-progress-info { display: flex; justify-content: space-between; color: #2e7d32; font-weight: bold; font-size: 1rem; margin-bottom: 5px; }
+  .wm-progress-container { height: 12px; background: #c8e6c9; border-radius: 10px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+  .wm-progress-bar { height: 100%; background: linear-gradient(90deg, #ffca28, #ffb300); width: 0%; transition: width 0.3s ease-out; }
+  #wm-scoreText { transition: color 0.3s; font-size: 1.1rem; }
+
+  .wm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px 25px; }
+  
+  .wm-hole-wrapper { position: relative; width: 100%; height: 155px; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; border-radius: 10px; }
+  .wm-hole-back { position: absolute; bottom: 15px; width: 85%; height: 40px; background-color: #2c1a14; border-radius: 50%; z-index: 1; }
+  .wm-hole-front { position: absolute; bottom: 0px; width: 100%; height: 35px; background-color: #5d4037; border-radius: 50%; z-index: 3; box-shadow: inset 0 8px 12px rgba(0,0,0,0.2); }
+  
+  .wm-mole {
+    position: absolute; bottom: -140px; width: 80%; height: 125px; background-color: #8d6e63; border-radius: 45px 45px 0 0;
+    z-index: 2; transition: bottom 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; padding-top: 10px; border: 4px solid #4e342e; border-bottom: none;
+  }
+  .wm-mole.up { bottom: 15px; }
+  
+  .wm-mole-face { position: relative; width: 100%; height: 20px; margin-bottom: 5px; }
+  .wm-mole-eye { position: absolute; width: 9px; height: 9px; background: #212121; border-radius: 50%; top: 0; }
+  .wm-mole-eye.left { left: 25%; }
+  .wm-mole-eye.right { right: 25%; }
+  .wm-mole-nose { position: absolute; width: 14px; height: 8px; background: #ff7043; border-radius: 50%; top: 6px; left: 50%; transform: translateX(-50%); }
+  
+  .wm-mole-placard {
+    background: white; width: 88%; height: 75px; border-radius: 10px; border: 3px solid #d7ccc8;
+    display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .wm-mole-placard img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; border-radius: 6px;}
+  .wm-mole-placard span { font-size: 1.3rem; font-weight: 900; color: #333; pointer-events: none; word-break: break-word; line-height: 1.1;}
+
+  @media (max-width: 500px) { 
+    .wm-grid { gap: 10px; padding: 5px 15px; } 
+    .wm-hole-wrapper { height: 110px; }
+    .wm-hole-back { bottom: 10px; height: 30px; }
+    .wm-hole-front { height: 25px; }
+    .wm-mole { bottom: -100px; height: 95px; border-radius: 35px 35px 0 0; padding-top: 8px; border-width: 3px; }
+    .wm-mole.up { bottom: 12px; }
+    .wm-mole-face { height: 16px; margin-bottom: 2px; }
+    .wm-mole-eye { width: 7px; height: 7px; }
+    .wm-mole-nose { width: 10px; height: 6px; top: 5px; }
+    .wm-mole-placard { height: 50px; border-radius: 8px; border-width: 2px; }
+    .wm-mole-placard span { font-size: 1rem; }
+  }
+
+  .wm-mole.hit-correct { background-color: #66bb6a !important; border-color: #2e7d32 !important; }
+  .wm-mole.hit-wrong { background-color: #ef5350 !important; border-color: #c62828 !important; }
+
+  .wm-shake { animation: wm-shake 0.4s; }
+  @keyframes wm-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+</style>
+
+<div id="module-whack-a-mole" class="card d-none game-module">
+  <div class="wm-header">
+    <span>🎯 第 <span id="wm-levelText">1 / 10</span> 關</span>
+    <span>⏱️ <span id="wm-timerText">0</span> 秒</span>
+  </div>
+  
+  <div class="wm-target-area" id="wm-targetArea"></div>
+  
+  <div class="wm-speed-box">
+    <span id="wm-speed-icon">🐇</span>
+    <input type="range" min="0.3" max="1.0" step="0.05" value="0.85" oninput="changeWMSpeed(this.value)">
+    <span id="wm-speed-text">0.85x</span>
+  </div>
+  
+  <div class="wm-progress-wrapper">
+    <div class="wm-progress-info">
+      <span style="color: #d35400;">🏆 分數：<span id="wm-scoreText">100</span></span>
+      <span>進度：<span id="wm-progressText">0 / 3</span></span>
+    </div>
+    <div class="wm-progress-container">
+      <div class="wm-progress-bar" id="wm-progressBar"></div>
+    </div>
+  </div>
+
+  <div class="wm-grid" id="wm-gridArea"></div>
+</div>
+
+<script>
+  let wm_questions = [];
+  let wm_currentIndex = 0;
+  let wm_score = 100; 
+  let wm_hitsNeeded = 3; 
+  let wm_currentHits = 0;
+  let wm_molesActive = [false, false, false, false, false, false];
+  let wm_popInterval = null;
+  let wm_isLocked = false;
+  let wm_stayTime = 3000; // 地鼠停留的時間 (改成 3000 就是停留 3 秒)
+  let wm_popIntervalTime = 1500; // 地鼠冒出來的間隔 (稍微調慢到 1.5 秒，避免畫面太擠)
+
+  const wm_sfxCorrect = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const wm_sfxWrong = new Audio('https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3');
+  const wm_sfxLevelUp = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3');
+
+  document.addEventListener('timerUpdated', function(e) { let timerEl = document.getElementById('wm-timerText'); if(timerEl) timerEl.innerText = e.detail; });
+
+  function changeWMSpeed(val) {
+    if (typeof currentSpeechRate !== 'undefined') {
+      currentSpeechRate = parseFloat(val); 
+    }
+    document.getElementById('wm-speed-text').innerText = parseFloat(val).toFixed(2) + 'x';
+    
+    let icon = '🐇';
+    if (val <= 0.45) icon = '🐌';
+    else if (val < 0.8) icon = '🐢';
+    document.getElementById('wm-speed-icon').innerText = icon;
+  }
+
+  function initGame_WhackAMole(questions) {
+    document.getElementById('module-whack-a-mole').classList.remove('d-none');
+    
+    let globalSlider = document.getElementById('speedControlPanel');
+    if(globalSlider) globalSlider.classList.add('d-none');
+
+    wm_questions = questions;
+    wm_currentIndex = 0;
+    wm_score = 100;
+    document.getElementById('wm-scoreText').innerText = wm_score; 
+    
+    let gridHtml = "";
+    for(let i=0; i<6; i++) {
+      gridHtml += `
+        <div class="wm-hole-wrapper">
+          <div class="wm-hole-back"></div>
+          <div class="wm-mole" id="wm-mole-${i}" onclick="whackMole(${i})">
+            <div class="wm-mole-face">
+              <div class="wm-mole-eye left"></div>
+              <div class="wm-mole-eye right"></div>
+              <div class="wm-mole-nose"></div>
+            </div>
+            <div class="wm-mole-placard" id="wm-mole-content-${i}"></div>
+          </div>
+          <div class="wm-hole-front"></div>
+        </div>`;
+    }
+    document.getElementById('wm-gridArea').innerHTML = gridHtml;
+    
+    renderWMLevel();
+  }
+
+  // 🌟 關鍵修復：強制讓 MP3 播放器也跟著滑桿調整播放速度
+  function playWMAudio(url, fallbackWord) {
+    if(url && url !== 'undefined' && url !== '') { 
+      let audio = new Audio(url); 
+      if (typeof currentSpeechRate !== 'undefined') {
+        audio.playbackRate = currentSpeechRate; 
+      }
+      audio.play().catch(() => speakWord(fallbackWord)); 
+    } else { 
+      speakWord(fallbackWord); 
+    }
+  }
+
+  function renderWMLevel() {
+    wm_isLocked = false;
+    wm_currentHits = 0;
+    updateWMProgressUI();
+    document.getElementById('wm-targetArea').style.backgroundColor = '#fff';
+    
+    let q = wm_questions[wm_currentIndex];
+    let qType = globalGameData.qType || 'audio'; 
+    document.getElementById('wm-levelText').innerText = (wm_currentIndex + 1) + " / " + wm_questions.length;
+    
+    let targetHtml = "";
+    if (qType === 'audio') {
+      targetHtml = `<div class="wm-target-audio" onclick="playWMAudio('${q.target.audioUrl}', '${q.target.english}')">🔊</div>
+                    <div style="font-size: 0.9rem; color: #636e72; margin-top: 5px;">點擊聽發音，找出對應的地鼠！</div>`;
+    } else if (qType === 'image') {
+      targetHtml = q.target.imageUrl ? `<img src="${q.target.imageUrl}" style="max-height: 120px; border-radius: 8px;" onclick="playWMAudio('${q.target.audioUrl}', '${q.target.english}')">` : `<div class="wm-target-text">無圖片</div>`;
+    } else if (qType === 'chinese') {
+      targetHtml = `<div class="wm-target-text" onclick="playWMAudio('${q.target.audioUrl}', '${q.target.english}')">${q.target.chinese}</div>`;
+    } else {
+      targetHtml = `<div class="wm-target-text" onclick="playWMAudio('${q.target.audioUrl}', '${q.target.english}')">${q.target.english}</div>`;
+    }
+    document.getElementById('wm-targetArea').innerHTML = targetHtml;
+    
+    setTimeout(() => playWMAudio(q.target.audioUrl, q.target.english), 400);
+
+    clearInterval(wm_popInterval);
+    // 🌟 修改這裡：換成 wm_popIntervalTime
+    wm_popInterval = setInterval(popRandomMole, wm_popIntervalTime);
+  }
+
+  function updateWMProgressUI() {
+    document.getElementById('wm-progressText').innerText = wm_currentHits + " / " + wm_hitsNeeded;
+    let percentage = (wm_currentHits / wm_hitsNeeded) * 100;
+    document.getElementById('wm-progressBar').style.width = percentage + "%";
+  }
+
+  function getWMMoleContent(item, optType) {
+    if (optType === 'image') return item.imageUrl ? `<img src="${item.imageUrl}">` : `<span>無圖</span>`;
+    return `<span>${item.english.toLowerCase()}</span>`;
+  }
+
+  function popRandomMole() {
+    if (wm_isLocked) return;
+    
+    let emptyHoles = [];
+    for(let i=0; i<6; i++) { if(!wm_molesActive[i]) emptyHoles.push(i); }
+    if(emptyHoles.length === 0) return;
+    
+    let holeIdx = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
+    let q = wm_questions[wm_currentIndex];
+    
+    let isCorrect = Math.random() < 0.4;
+    let itemData;
+    
+    if(isCorrect) {
+      itemData = q.target;
+    } else {
+      let distractors = q.options.filter(x => x.english !== q.target.english);
+      if(distractors.length === 0) distractors = [q.target]; 
+      itemData = distractors[Math.floor(Math.random() * distractors.length)];
+    }
+
+    wm_molesActive[holeIdx] = true;
+    let moleEl = document.getElementById(`wm-mole-${holeIdx}`);
+    let placardEl = document.getElementById(`wm-mole-content-${holeIdx}`);
+    
+    placardEl.innerHTML = getWMMoleContent(itemData, globalGameData.optType || 'english');
+    moleEl.dataset.correct = isCorrect;
+    
+    moleEl.className = "wm-mole up";
+    
+    setTimeout(() => {
+      if(moleEl.classList.contains('up')) {
+        moleEl.classList.remove('up');
+        setTimeout(() => { wm_molesActive[holeIdx] = false; }, 200);
+      }
+    }, wm_stayTime); // 🌟 修改這裡：換成 wm_stayTime，讓地鼠停留久一點
+  }
+
+  function whackMole(holeIdx) {
+    if (wm_isLocked) return;
+    
+    let moleEl = document.getElementById(`wm-mole-${holeIdx}`);
+    if(!moleEl.classList.contains('up') || moleEl.classList.contains('hit-correct') || moleEl.classList.contains('hit-wrong')) return;
+    
+    let isCorrect = moleEl.dataset.correct === 'true';
+    
+    if (isCorrect) {
+      wm_sfxCorrect.currentTime = 0; wm_sfxCorrect.play().catch(()=>{});
+      moleEl.classList.add('hit-correct');
+      moleEl.classList.remove('up'); 
+      wm_currentHits++;
+      updateWMProgressUI();
+      
+      setTimeout(() => { 
+        moleEl.classList.remove('hit-correct');
+        wm_molesActive[holeIdx] = false; 
+      }, 200);
+      
+      if (wm_currentHits >= wm_hitsNeeded) {
+        wm_isLocked = true;
+        clearInterval(wm_popInterval);
+        
+        wm_sfxLevelUp.currentTime = 0; wm_sfxLevelUp.play().catch(()=>{});
+        document.getElementById('wm-targetArea').style.backgroundColor = '#e8f5e9';
+        
+        document.querySelectorAll('.wm-mole').forEach(m => m.classList.remove('up'));
+        
+        setTimeout(() => {
+          wm_currentIndex++;
+          if(wm_currentIndex < wm_questions.length) {
+            renderWMLevel();
+          } else {
+            finishGame(Math.max(0, wm_score));
+          }
+        }, 1200);
+      }
+    } else {
+      wm_sfxWrong.currentTime = 0; wm_sfxWrong.play().catch(()=>{});
+      
+      wm_score = Math.max(0, wm_score - 2); 
+      let scoreEl = document.getElementById('wm-scoreText');
+      scoreEl.innerText = wm_score;
+      scoreEl.style.color = '#c62828'; 
+      setTimeout(() => scoreEl.style.color = '', 500); 
+      
+      moleEl.classList.add('hit-wrong');
+      document.getElementById('module-whack-a-mole').classList.add('wm-shake');
+      
+      setTimeout(() => {
+        moleEl.classList.remove('up'); 
+        document.getElementById('module-whack-a-mole').classList.remove('wm-shake'); 
+        
+        setTimeout(() => { 
+          moleEl.classList.remove('hit-wrong');
+          wm_molesActive[holeIdx] = false; 
+        }, 200);
+      }, 400); 
+    }
+  }
+</script>
