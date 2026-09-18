@@ -6,7 +6,7 @@
   <title>學生闖關任務</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    /* 🌟 1. 鎖死最外層，強制滿版且絕對禁止滑動 */
+    /* 🌟 1. 鎖死最外層，強制滿版且絕對禁止外層滑動 */
     html, body { 
       background-color: #f4f9f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; 
       margin: 0; padding: 0; 
@@ -20,16 +20,40 @@
     
     /* 🌟 2. 遊戲容器動態滿版，但在電腦上保留合理的極限寬度 */
     .game-wrapper { 
-      width: 100%; height: 100%; max-width: 1000px; padding: 10px; box-sizing: border-box; 
+      width: 100%; height: 100%; max-width: 900px; padding: 10px; box-sizing: border-box; 
       display: flex; flex-direction: column; justify-content: center; 
     }
     
-    /* 🌟 3. 卡片內部設定：確保內容不會衝破螢幕 */
+    /* 🌟 3. 卡片內部設定：修復內容衝破螢幕的問題 */
     .card { 
       border-radius: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.08); border: none; margin: 0; width: 100%; 
-      max-height: 95vh; display: flex; flex-direction: column; 
+      max-height: 95vh; display: flex; flex-direction: column; overflow: hidden; 
     }
-    .card-body { overflow-y: auto; }
+    .card-body { 
+      overflow-y: auto; flex: 1 1 auto; 
+    }
+
+    /* 🌟 4. 全局圖片自適應：強制圖片縮小 */
+    #game-container img {
+      max-height: 16vh; /* 稍微縮小一點點，讓 2x2 空間更寬裕 */
+      width: auto;
+      object-fit: contain;
+    }
+
+    /* 🌟 5. 終極響應式排版 (手機 1x4，電腦/橫式平板 2x2) */
+    /* 抓出 Bootstrap 的選項容器，強制套用我們的 Grid 魔法 */
+    #game-container .d-grid, #game-container .options-container, #mc-options {
+      display: grid !important;
+      grid-template-columns: 1fr; /* 預設 (手機)：直排 1 個 (100%寬) */
+      gap: 15px !important;
+    }
+    
+    @media (min-width: 768px) {
+      /* 當螢幕寬度大於 768px (平板橫放、電腦) 時，自動啟動這裡的設定 */
+      #game-container .d-grid, #game-container .options-container, #mc-options {
+        grid-template-columns: 1fr 1fr !important; /* 變成左右 2 個 (50% + 50%) */
+      }
+    }
 
     .header-bar { color: white; border-radius: 20px 20px 0 0; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0; }
     .header-login { background-color: #f7a072; }
